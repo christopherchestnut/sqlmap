@@ -149,8 +149,8 @@ def cmdLineParser(argv=None):
         request.add_option("--auth-file", dest="authFile",
                            help="HTTP authentication PEM cert/private key file")
 
-        request.add_option("--ignore-401", dest="ignore401", action="store_true",
-                          help="Ignore HTTP Error 401 (Unauthorized)")
+        request.add_option("--ignore-code", dest="ignoreCode", type="int",
+                          help="Ignore HTTP error code (e.g. 401)")
 
         request.add_option("--ignore-proxy", dest="ignoreProxy", action="store_true",
                            help="Ignore system default proxy settings")
@@ -780,6 +780,9 @@ def cmdLineParser(argv=None):
                           help=SUPPRESS_HELP)
 
         parser.add_option("--profile", dest="profile", action="store_true",
+                          help=SUPPRESS_HELP)
+
+        parser.add_option("--force-dbms", dest="forceDbms",
                           help=SUPPRESS_HELP)
 
         parser.add_option("--force-dns", dest="forceDns", action="store_true",

@@ -542,6 +542,15 @@ class Connect(object):
                     warnMsg = "problem occurred during connection closing ('%s')" % getSafeExString(ex)
                     logger.warn(warnMsg)
 
+        except SqlmapConnectionException, ex:
+            if conf.proxyList and not kb.threadException:
+                warnMsg = "unable to connect to the target URL ('%s')" % ex
+                logger.critical(warnMsg)
+                threadData.retriesCount = conf.retries
+                return Connect._retryProxy(**kwargs)
+            else:
+                raise
+
         except urllib2.HTTPError, ex:
             page = None
             responseHeaders = None
@@ -590,34 +599,35 @@ class Connect(object):
             if not multipart:
                 logger.log(CUSTOM_LOGGING.TRAFFIC_IN, responseMsg)
 
-            if ex.code == httplib.UNAUTHORIZED and not conf.ignore401:
-                errMsg = "not authorized, try to provide right HTTP "
-                errMsg += "authentication type and valid credentials (%d)" % code
-                raise SqlmapConnectionException(errMsg)
-            elif ex.code == httplib.NOT_FOUND:
-                if raise404:
-                    errMsg = "page not found (%d)" % code
+            if ex.code != conf.ignoreCode:
+                if ex.code == httplib.UNAUTHORIZED:
+                    errMsg = "not authorized, try to provide right HTTP "
+                    errMsg += "authentication type and valid credentials (%d)" % code
                     raise SqlmapConnectionException(errMsg)
-                else:
-                    debugMsg = "page not found (%d)" % code
-                    singleTimeLogMessage(debugMsg, logging.DEBUG)
-            elif ex.code == httplib.GATEWAY_TIMEOUT:
-                if ignoreTimeout:
-                    return None if not conf.ignoreTimeouts else "", None, None
-                else:
-                    warnMsg = "unable to connect to the target URL (%d - %s)" % (ex.code, httplib.responses[ex.code])
-                    if threadData.retriesCount < conf.retries and not kb.threadException:
-                        warnMsg += ". sqlmap is going to retry the request"
-                        logger.critical(warnMsg)
-                        return Connect._retryProxy(**kwargs)
-                    elif kb.testMode:
-                        logger.critical(warnMsg)
-                        return None, None, None
+                elif ex.code == httplib.NOT_FOUND:
+                    if raise404:
+                        errMsg = "page not found (%d)" % code
+                        raise SqlmapConnectionException(errMsg)
                     else:
-                        raise SqlmapConnectionException(warnMsg)
-            else:
-                debugMsg = "got HTTP error code: %d (%s)" % (code, status)
-                logger.debug(debugMsg)
+                        debugMsg = "page not found (%d)" % code
+                        singleTimeLogMessage(debugMsg, logging.DEBUG)
+                elif ex.code == httplib.GATEWAY_TIMEOUT:
+                    if ignoreTimeout:
+                        return None if not conf.ignoreTimeouts else "", None, None
+                    else:
+                        warnMsg = "unable to connect to the target URL (%d - %s)" % (ex.code, httplib.responses[ex.code])
+                        if threadData.retriesCount < conf.retries and not kb.threadException:
+                            warnMsg += ". sqlmap is going to retry the request"
+                            logger.critical(warnMsg)
+                            return Connect._retryProxy(**kwargs)
+                        elif kb.testMode:
+                            logger.critical(warnMsg)
+                            return None, None, None
+                        else:
+                            raise SqlmapConnectionException(warnMsg)
+                else:
+                    debugMsg = "got HTTP error code: %d (%s)" % (code, status)
+                    logger.debug(debugMsg)
 
         except (urllib2.URLError, socket.error, socket.timeout, httplib.HTTPException, struct.error, binascii.Error, ProxyError, SqlmapCompressionException, WebSocketException, TypeError, ValueError):
             tbMsg = traceback.format_exc()
@@ -757,8 +767,8 @@ class Connect(object):
     def queryPage(value=None, place=None, content=False, getRatioValue=False, silent=False, method=None, timeBasedCompare=False, noteResponseTime=True, auxHeaders=None, response=False, raise404=None, removeReflection=True):
         """
         This method calls a function to get the target URL page content
-        and returns its page MD5 hash or a boolean value in case of
-        string match check ('--string' command line parameter)
+        and returns its page ratio (0 <= ratio <= 1) or a boolean value
+        representing False/True match in case of !getRatioValue
         """
 
         if conf.direct:
@@ -934,12 +944,14 @@ class Connect(object):
                 return retVal
 
             page, headers, code = Connect.getPage(url=conf.csrfUrl or conf.url, data=conf.data if conf.csrfUrl == conf.url else None, method=conf.method if conf.csrfUrl == conf.url else None, cookie=conf.parameters.get(PLACE.COOKIE), direct=True, silent=True, ua=conf.parameters.get(PLACE.USER_AGENT), referer=conf.parameters.get(PLACE.REFERER), host=conf.parameters.get(PLACE.HOST))
-            match = re.search(r"<input[^>]+name=[\"']?%s[\"']?\s[^>]*value=(\"([^\"]+)|'([^']+)|([^ >]+))" % re.escape(conf.csrfToken), page or "")
-            token = (match.group(2) or match.group(3) or match.group(4)) if match else None
+            token = extractRegexResult(r"(?i)<input[^>]+\bname=[\"']?%s[\"']?[^>]*\bvalue=(?P<result>(\"([^\"]+)|'([^']+)|([^ >]+)))" % re.escape(conf.csrfToken), page or "")
 
             if not token:
-                match = re.search(r"%s[\"']:[\"']([^\"']+)" % re.escape(conf.csrfToken), page or "")
-                token = match.group(1) if match else None
+                token = extractRegexResult(r"(?i)<input[^>]+\bvalue=(?P<result>(\"([^\"]+)|'([^']+)|([^ >]+)))[^>]+\bname=[\"']?%s[\"']?" % re.escape(conf.csrfToken), page or "")
+
+                if not token:
+                    match = re.search(r"%s[\"']:[\"']([^\"']+)" % re.escape(conf.csrfToken), page or "")
+                    token = match.group(1) if match else None
 
             if not token:
                 if conf.csrfUrl != conf.url and code == httplib.OK:
@@ -967,6 +979,8 @@ class Connect(object):
                     raise SqlmapTokenException, errMsg
 
             if token:
+                token = token.strip("'\"")
+
                 for place in (PLACE.GET, PLACE.POST):
                     if place in conf.parameters:
                         if place == PLACE.GET and get:

@@ -257,17 +257,23 @@ def checkSqlInjection(place, parameter, value):
             if payloadDbms is not None:
                 # Skip DBMS-specific test if it does not match the user's
                 # provided DBMS
-                if conf.dbms is not None and not intersect(payloadDbms, conf.dbms, True):
+                if conf.dbms and not intersect(payloadDbms, conf.dbms, True):
                     debugMsg = "skipping test '%s' because " % title
-                    debugMsg += "the provided DBMS is %s" % conf.dbms
+                    debugMsg += "its declared DBMS is different than provided"
+                    logger.debug(debugMsg)
+                    continue
+
+                if kb.dbmsFilter and not intersect(payloadDbms, kb.dbmsFilter, True):
+                    debugMsg = "skipping test '%s' because " % title
+                    debugMsg += "its declared DBMS is different than provided"
                     logger.debug(debugMsg)
                     continue
 
                 # Skip DBMS-specific test if it does not match the
                 # previously identified DBMS (via DBMS-specific payload)
-                if injection.dbms is not None and not intersect(payloadDbms, injection.dbms, True):
-                    debugMsg = "skipping test '%s' because the identified " % title
-                    debugMsg += "back-end DBMS is %s" % injection.dbms
+                if injection.dbms and not intersect(payloadDbms, injection.dbms, True):
+                    debugMsg = "skipping test '%s' because " % title
+                    debugMsg += "its declared DBMS is different than identified"
                     logger.debug(debugMsg)
                     continue
 
@@ -618,7 +624,9 @@ def checkSqlInjection(place, parameter, value):
 
                             configUnion(test.request.char, test.request.columns)
 
-                            if not Backend.getIdentifiedDbms():
+                            if len(kb.dbmsFilter or []) == 1:
+                                Backend.forceDbms(kb.dbmsFilter[0])
+                            elif not Backend.getIdentifiedDbms():
                                 if kb.heuristicDbms is None:
                                     warnMsg = "using unescaped version of the test "
                                     warnMsg += "because of zero knowledge of the "
@@ -1504,9 +1512,10 @@ def checkConnection(suppressOutput=False):
             warnMsg += "which could interfere with the results of the tests"
             logger.warn(warnMsg)
         elif wasLastResponseHTTPError():
-            warnMsg = "the web server responded with an HTTP error code (%d) " % getLastRequestHTTPError()
-            warnMsg += "which could interfere with the results of the tests"
-            logger.warn(warnMsg)
+            if getLastRequestHTTPError() != conf.ignoreCode:
+                warnMsg = "the web server responded with an HTTP error code (%d) " % getLastRequestHTTPError()
+                warnMsg += "which could interfere with the results of the tests"
+                logger.warn(warnMsg)
         else:
             kb.errorIsNone = True
 
