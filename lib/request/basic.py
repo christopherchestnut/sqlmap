@@ -2,7 +2,7 @@
 
 """
 Copyright (c) 2006-2017 sqlmap developers (http://sqlmap.org/)
-See the file 'doc/COPYING' for copying permission
+See the file 'LICENSE' for copying permission
 """
 
 import codecs
@@ -279,7 +279,7 @@ def decodePage(page, contentEncoding, contentType):
                 kb.pageCompress = False
                 raise SqlmapCompressionException
 
-    if not conf.charset:
+    if not conf.encoding:
         httpCharset, metaCharset = None, None
 
         # Reference: http://stackoverflow.com/questions/1020892/python-urllib2-read-to-unicode
@@ -296,7 +296,7 @@ def decodePage(page, contentEncoding, contentType):
         else:
             kb.pageEncoding = None
     else:
-        kb.pageEncoding = conf.charset
+        kb.pageEncoding = conf.encoding
 
     # can't do for all responses because we need to support binary files too
     if contentType and not isinstance(page, unicode) and "text/" in contentType.lower():

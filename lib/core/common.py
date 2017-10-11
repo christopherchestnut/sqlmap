@@ -2,7 +2,7 @@
 
 """
 Copyright (c) 2006-2017 sqlmap developers (http://sqlmap.org/)
-See the file 'doc/COPYING' for copying permission
+See the file 'LICENSE' for copying permission
 """
 
 import codecs
@@ -143,6 +143,7 @@ from lib.core.settings import REFLECTED_REPLACEMENT_REGEX
 from lib.core.settings import REFLECTED_REPLACEMENT_TIMEOUT
 from lib.core.settings import REFLECTED_VALUE_MARKER
 from lib.core.settings import REFLECTIVE_MISS_THRESHOLD
+from lib.core.settings import SAFE_VARIABLE_MARKER
 from lib.core.settings import SENSITIVE_DATA_REGEX
 from lib.core.settings import SENSITIVE_OPTIONS
 from lib.core.settings import SUPPORTED_DBMS
@@ -3207,13 +3208,13 @@ def decodeIntToUnicode(value):
 
                 if Backend.isDbms(DBMS.MYSQL):
                     # https://github.com/sqlmapproject/sqlmap/issues/1531
-                    retVal = getUnicode(raw, conf.charset or UNICODE_ENCODING)
+                    retVal = getUnicode(raw, conf.encoding or UNICODE_ENCODING)
                 elif Backend.isDbms(DBMS.MSSQL):
                     retVal = getUnicode(raw, "UTF-16-BE")
                 elif Backend.getIdentifiedDbms() in (DBMS.PGSQL, DBMS.ORACLE):
                     retVal = unichr(value)
                 else:
-                    retVal = getUnicode(raw, conf.charset)
+                    retVal = getUnicode(raw, conf.encoding)
             else:
                 retVal = getUnicode(chr(value))
         except:
@@ -4429,3 +4430,9 @@ def getSafeExString(ex, encoding=None):
         retVal = ex.msg
 
     return getUnicode(retVal or "", encoding=encoding).strip()
+
+def safeVariableNaming(value):
+    return re.sub(r"[^\w]", lambda match: "%s%02x" % (SAFE_VARIABLE_MARKER, ord(match.group(0))), value)
+
+def unsafeVariableNaming(value):
+    return re.sub(r"%s([0-9a-f]{2})" % SAFE_VARIABLE_MARKER, lambda match: match.group(1).decode("hex"), value)

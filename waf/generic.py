@@ -2,7 +2,7 @@
 
 """
 Copyright (c) 2006-2017 sqlmap developers (http://sqlmap.org/)
-See the file 'doc/COPYING' for copying permission
+See the file 'LICENSE' for copying permission
 """
 
 from lib.core.option import kb
@@ -22,7 +22,9 @@ def detect(get_page):
         page, _, code = get_page(get=vector)
 
         if code >= 400 or IDS_WAF_CHECK_PAYLOAD in vector and code is None:
-            kb.wafSpecificResponse = "HTTP/1.1 %s\n%s\n%s" % (code, "".join(_ for _ in headers.headers or [] if not _.startswith("URI")), page)
+            if code is not None:
+                kb.wafSpecificResponse = "HTTP/1.1 %s\n%s\n%s" % (code, "".join(_ for _ in headers.headers or [] if not _.startswith("URI")), page)
+
             retval = True
             break
 

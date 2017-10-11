@@ -2,7 +2,7 @@
 
 """
 Copyright (c) 2006-2017 sqlmap developers (http://sqlmap.org/)
-See the file 'doc/COPYING' for copying permission
+See the file 'LICENSE' for copying permission
 """
 
 import re
@@ -121,7 +121,7 @@ class Agent(object):
             paramString = origValue
             origValue = origValue.split(kb.customInjectionMark)[0]
             origValue = origValue[origValue.find(',') + 1:]
-            match = re.search(r"([^;]+)=(?P<value>[^;]+);?\Z", origValue)
+            match = re.search(r"([^;]+)=(?P<value>[^;]*);?\Z", origValue)
             if match:
                 origValue = match.group("value")
             elif ',' in paramString:

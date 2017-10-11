@@ -2,7 +2,7 @@
 
 """
 Copyright (c) 2006-2017 sqlmap developers (http://sqlmap.org/)
-See the file 'doc/COPYING' for copying permission
+See the file 'LICENSE' for copying permission
 """
 
 class PRIORITY:
@@ -184,6 +184,7 @@ class HTTP_HEADER:
     USER_AGENT = "User-Agent"
     VIA = "Via"
     X_POWERED_BY = "X-Powered-By"
+    X_DATA_ORIGIN = "X-Data-Origin"
 
 class EXPECTED:
     BOOL = "bool"
